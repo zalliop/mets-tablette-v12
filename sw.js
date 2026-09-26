@@ -1,5 +1,5 @@
 /* Permet à l'application de s'ouvrir sans internet une fois installée. */
-const V = "mets-v26";
+const V = "mets-v27";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(V).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));

@@ -226,3 +226,12 @@ NOUVEAU (version 26) - BARRE A 4 ONGLETS
 - Touchez un onglet pour ouvrir son menu, puis choisissez la page.
   L'onglet garde l'icone de la page ouverte.
 - Sur telephone, le menu s'ouvre au-dessus de la barre, sur toute la largeur.
+
+NOUVEAU (version 27) - PHOTOS ET VIDEOS
+- Recettes : "Ajouter une photo du plat" sous l'en-tete. Grande photo en haut
+  de la fiche, vignettes (etoile = photo principale, croix = retirer),
+  vignette dans la liste des recettes, photo en haut du PDF.
+- Articles Histoire & Origines : image d'en-tete, "Inserer une image dans le
+  texte" (avec legende) et "Inserer une video" (lien YouTube ou Vimeo).
+- Carnet : inchange sur tablette (photos et videos sur l'appareil).
+- Photos reduites automatiquement pour economiser la memoire.

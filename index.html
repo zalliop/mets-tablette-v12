@@ -695,6 +695,32 @@ main{position:relative}
   .dd-menu{position:fixed;left:10px;right:10px;bottom:calc(88px + env(safe-area-inset-bottom,0px));top:auto;transform:none;min-width:0}
   .dd-item{min-height:54px;font-size:1.02rem}
 }
+.rphotos{margin:-6px 0 20px}
+.rphotos.empty{display:flex}
+.rphotos{width:100%}
+.rp-main{margin:0;width:100%;height:clamp(170px,24vw,320px);border-radius:20px;overflow:hidden;background:var(--surface-2);box-shadow:0 8px 24px rgba(10,63,75,.10)}
+.rp-main img{width:100%;height:100%;object-fit:cover;display:block}
+.rp-strip{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+.rp-thumb{position:relative;width:88px;height:66px;border-radius:12px;overflow:hidden;background:var(--surface-2);border:2px solid transparent}
+.rp-thumb.on{border-color:#F2A100}
+.rp-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.rp-acts{position:absolute;inset:auto 3px 3px auto;display:flex;gap:3px}
+.rp-acts button{width:26px;height:26px;border-radius:8px;border:0;background:rgba(0,0,0,.6);color:#fff;font-size:.8rem;cursor:pointer}
+.rp-addtile{width:66px;height:66px;border-radius:12px;border:2px dashed var(--line-strong);background:none;color:var(--brand);font:700 1.6rem var(--font);cursor:pointer}
+.row-card .rthumb{width:64px;height:64px;border-radius:12px;object-fit:cover;flex:none;margin-right:4px}
+.hist-cover{margin:-8px -8px 18px;border-radius:14px;overflow:hidden;aspect-ratio:21/9}
+.hist-cover img{width:100%;height:100%;object-fit:cover;display:block}
+.hist-fig{margin:18px 0}
+.hist-fig img{width:100%;border-radius:14px;display:block}
+.hist-fig figcaption{font-size:.88rem;color:var(--muted);margin-top:6px;font-style:italic}
+.hist-video{position:relative;aspect-ratio:16/9;margin:18px 0;border-radius:14px;overflow:hidden;background:#000}
+.hist-video iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.hist-card .hist-thumb{width:100%;aspect-ratio:21/8;object-fit:cover;border-radius:12px;margin-bottom:6px}
+.hm-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.hm-cover{width:140px;height:70px;border-radius:10px;overflow:hidden;background:var(--surface-2);display:grid;place-items:center;font-size:.78rem;color:var(--muted)}
+.hm-cover img{width:100%;height:100%;object-fit:cover}
+.hm-btns{display:flex;gap:8px;flex-wrap:wrap}
+.hm-tools{display:flex;gap:8px;flex-wrap:wrap;margin:-4px 0 4px}
 </style>
 </head>
 <body>
@@ -1365,7 +1391,7 @@ function recMatches(r, q){
 }
 function recRow(r){
   const c = calc(r), cls = fcClass(c.fc), al = recipeAllergens(r).length;
-  return `<button class="row-card st-${cls}" data-a="open-recipe" data-id="${r.id}">
+  return `<button class="row-card st-${cls}" data-a="open-recipe" data-id="${r.id}">${r.photos&&r.photos[0]?mediaImgHTML(r.photos[0],"rthumb"):""}
     <div class="rc-main"><div class="t">${esc(r.name||"Sans nom")}</div>
     <div class="s">${r.category?`<span class="rcat">${esc(r.category)}</span> · `:""}${recAmount(r)} · ${r.lines.length} ingrédient${r.lines.length>1?"s":""} · ${al} allergène${al>1?"s":""}</div></div>
     <div class="money">${money(c.perPortion)} / portion</div>
@@ -1400,6 +1426,7 @@ function renderRecList(){
   items.forEach(r=>{ const g=keyOf(r); (groups.get(g)||groups.set(g,[]).get(g)).push(r); });
   box.innerHTML = [...groups.entries()].map(([g,rs])=>`<section class="rec-group"><h3 class="rec-h">${esc(g)} <span>${count.get(g)}</span></h3><div class="list">${rs.map(recRow).join("")}</div></section>`).join("")
     + pagerHTML("rec", page, list.length);
+  hydrate(box);
   const c = $("#recCount"); if(c) c.textContent = list.length>PER_PAGE ? `${from}–${to} sur ${list.length}` : U.q ? `${list.length} sur ${all.length}` : `${all.length} recette${all.length>1?"s":""}`;
 }
 document.addEventListener("click", e=>{
@@ -1670,9 +1697,9 @@ function hist(id){ return histList().find(a=>a.id===id) || null; }
 function histSlug(t){ return normName(t).replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"") || "article"; }
 function histRecipes(id){ return state.recipes.filter(r=>r.historyId===id); }
 function histUI(){ return ui.hi || (ui.hi = {q:""}); }
-function histBodyHTML(text){
+function histBodyHTML(text, a){
   return String(text||"").split(/\n\s*\n/).map(p=>p.trim()).filter(Boolean).map(p=>
-    p.startsWith("## ") ? `<h3>${esc(p.slice(3))}</h3>` : `<p>${esc(p).replace(/\n/g,"<br>")}</p>`).join("");
+    p.startsWith("## ") ? `<h3>${esc(p.slice(3))}</h3>` : (histMediaBlock(p,a) || `<p>${esc(p).replace(/\n/g,"<br>")}</p>`)).join("");
 }
 function histSiteUrl(a){ const W=window.METS_WP; return W && W.historyUrl && a && a.published!==false ? W.historyUrl + encodeURIComponent(a.slug||histSlug(a.title)) + "/" : ""; }
 
@@ -1733,13 +1760,16 @@ function renderHistList(){
   const {page, items} = pageSlice("hist", list);
   box.innerHTML = (list.length ? items.map(a=>{
       const rs = histRecipes(a.id);
+      const cv = a.cover && (a.media||[]).find(m=>m.id===a.cover);
       return `<button class="hist-card" data-a="h-open" data-id="${a.id}">
+        ${cv?mediaImgHTML(cv,"hist-thumb"):""}
         <span class="hist-t">${esc(a.title)}</span>
         <span class="hist-m">${[a.place,a.period].filter(Boolean).map(esc).join(" · ")}${a.published===false?` · <b>brouillon</b>`:""}</span>
         ${a.summary?`<span class="hist-s">${esc(a.summary)}</span>`:""}
         ${rs.length?`<span class="hist-r">Recettes : ${rs.map(r=>esc(r.name)).join(", ")}</span>`:""}
       </button>`; }).join("") : `<div class="empty">Aucun article ne correspond.</div>`)
     + pagerHTML("hist", page, list.length);
+  hydrate(box);
 }
 
 /* --- Article --- */
@@ -1753,6 +1783,7 @@ function viewArticle(){
       <button class="btn ghost" data-a="print">Imprimer</button>
       <button class="btn" data-a="h-edit" data-id="${a.id}">Modifier</button></div>
     <article class="hist-article">
+      ${a.cover&&(a.media||[]).find(m=>m.id===a.cover)?`<figure class="hist-cover">${mediaImgHTML(a.media.find(m=>m.id===a.cover),"",a.title)}</figure>`:""}
       <p class="hist-kicker">Histoire & Origines</p>
       <h1>${esc(a.title)}</h1>
       ${(a.originName||a.place||a.period)?`<dl class="hist-facts">
@@ -1760,13 +1791,15 @@ function viewArticle(){
         ${a.place?`<div><dt>Origine</dt><dd>${esc(a.place)}</dd></div>`:""}
         ${a.period?`<div><dt>Époque</dt><dd>${esc(a.period)}</dd></div>`:""}</dl>`:""}
       ${a.summary?`<p class="hist-lede">${esc(a.summary)}</p>`:""}
-      <div class="hist-body">${histBodyHTML(a.body) || `<p class="hint">Article à rédiger : touchez « Modifier ».</p>`}</div>
+      <div class="hist-body">${histBodyHTML(a.body, a) || `<p class="hint">Article à rédiger : touchez « Modifier ».</p>`}</div>
       ${(a.sources||"").trim()?`<section class="hist-sources"><h3>Sources</h3>${histBodyHTML(a.sources)}</section>`:""}
       ${rs.length?`<section class="hist-sources no-print"><h3>Recettes de la maison</h3><p>${rs.map(r=>`<button class="linkbtn" data-a="open-recipe" data-id="${r.id}">${esc(r.name)}</button>`).join(", ")}</p></section>`:""}
     </article>`;
+  hydrate(app);
 }
 function openArticleEditor(id){
   const a = id ? hist(id) : {id:null,title:"",originName:"",place:"",period:"",summary:"",body:"",sources:"",published:true};
+  ui.histDraft = {media:[...(a.media||[])], cover:a.cover||null};
   const d = $("#histDlg");
   d.innerHTML = `<form class="dlg dlg-wide" method="dialog" id="histForm" data-id="${a.id||""}">
     <h3>${id?"Modifier l'article":"Nouvel article"}</h3>
@@ -1777,6 +1810,8 @@ function openArticleEditor(id){
     </div>
     <label class="f">Époque (si connue)<input type="text" name="period" value="${esc(a.period||"")}" placeholder="Ex : fin du XVIIIᵉ siècle"></label>
     <label class="f">Résumé (deux lignes)<textarea name="summary" rows="2">${esc(a.summary||"")}</textarea></label>
+    <div class="f"><span class="f-l">Image d'en-tête</span><div id="histMediaBox"></div></div>
+    <div class="hm-tools"><button type="button" class="btn small ghost" data-a="hm-img">🖼 Insérer une image dans le texte</button><button type="button" class="btn small ghost" data-a="hm-video">▶ Insérer une vidéo (YouTube, Vimeo)</button></div>
     <label class="f">Texte<textarea name="body" rows="12" placeholder="Une ligne vide entre deux paragraphes. « ## » en début de ligne pour un intertitre.">${esc(a.body||"")}</textarea></label>
     <label class="f">Sources<textarea name="sources" rows="3" placeholder="Livres, archives, sites consultés…">${esc(a.sources||"")}</textarea></label>
     <label class="checkline"><input type="checkbox" name="published" ${a.published!==false?"checked":""}> Article publié (sinon : brouillon)</label>
@@ -1786,7 +1821,7 @@ function openArticleEditor(id){
       <button type="button" class="btn ghost" data-a="h-close">Annuler</button>
       <button type="submit" class="btn">Enregistrer</button>
     </div></form>`;
-  d.showModal();
+  d.showModal(); renderHistFormMedia();
 }
 const HIST_SAMPLES = [
   {title:"Le gratin dauphinois", originName:"Gratin dauphinois", place:"Dauphiné, France", period:"XVIIIᵉ siècle",
@@ -1845,6 +1880,9 @@ document.addEventListener("submit", e=>{
   const x = { title:String(fd.get("title")).trim(), originName:String(fd.get("originName")).trim(), place:String(fd.get("place")).trim(),
     period:String(fd.get("period")).trim(), summary:String(fd.get("summary")).trim(), body:String(fd.get("body")), sources:String(fd.get("sources")),
     published: !!fd.get("published"), updatedAt: Date.now() };
+  { const dr = histDraft(), used = String(x.body).match(/\[image:([A-Za-z0-9]+)\]/g)||[];
+    const keep = new Set([dr.cover, ...used.map(t=>t.slice(7,-1))]);
+    x.media = dr.media.filter(m=>keep.has(m.id)); x.cover = dr.cover || null; }
   if(!x.title) return;
   x.slug = histSlug(x.title);
   if(histList().some(a=>a.id!==id && a.slug===x.slug)) x.slug += "-" + (id||uid()).slice(0,4);
@@ -2122,6 +2160,156 @@ document.addEventListener("keydown", e=>{
   if(e.key==="Escape"){ const open=document.querySelector(".tab-dd[aria-expanded='true']"); if(open){ closeDD(); open.focus(); } return; }
   if(menu && (e.key==="ArrowDown"||e.key==="ArrowUp")){ e.preventDefault(); const it=[...menu.querySelectorAll(".dd-item")]; const i=it.indexOf(document.activeElement); it[(i+(e.key==="ArrowDown"?1:-1)+it.length)%it.length].focus(); }
 });
+/* ========= Médias : photos et vidéos =========
+   Une référence de média : {id, type:"image"|"video", name, size, url?, purl?, poster?, mime?}
+   - version tablette : le fichier est dans la base de l'appareil (IndexedDB), on l'affiche via data-mid ;
+   - version WordPress : le fichier est envoyé dans la Médiathèque du site (url), partagé par l'équipe. */
+const isWP = () => !!(window.METS_WP && window.METS_WP.root);
+async function wpUpload(blob, name){
+  const W = window.METS_WP, fd = new FormData();
+  fd.append("file", blob, name);
+  const res = await fetch(W.root + "media", { method:"POST", credentials:"same-origin", headers:{ "X-WP-Nonce": W.nonce }, body: fd });
+  let j = null; try{ j = await res.json(); }catch(e){}
+  if(!res.ok) throw new Error((j && j.message) || ("Envoi impossible (" + res.status + ")"));
+  return j;
+}
+/* Enregistre un fichier et renvoie sa référence (null si type non pris en charge) */
+async function storeMedia(f, opts={}){
+  const isImg = (f.type||"").startsWith("image/") || /\.(heic|heif|jpe?g|png|webp)$/i.test(f.name||"");
+  const isVid = !opts.imagesOnly && ((f.type||"").startsWith("video/") || /\.(mov|mp4|m4v|webm)$/i.test(f.name||""));
+  const id = uid();
+  if(isImg){
+    const b = await shrinkImage(f, opts.max || 1600);
+    const name = (f.name||"photo").replace(/\.[^.]+$/,"") + ".jpg";
+    if(isWP()){ const j = await wpUpload(b, name); return {id, type:"image", name, size:b.size, url:j.url, wpId:j.id}; }
+    await mdb.put(id, b); return {id, type:"image", name, size:b.size};
+  }
+  if(isVid){
+    if(f.size > MAX_VIDEO) throw Object.assign(new Error("trop lourde"), {tooBig:true});
+    const poster = await videoPoster(f);
+    if(isWP()){
+      const j = await wpUpload(f, f.name || "video.mp4");
+      let purl = null; if(poster){ try{ purl = (await wpUpload(poster, "apercu.jpg")).url; }catch(e){} }
+      return {id, type:"video", name:f.name||"video.mp4", size:f.size, url:j.url, purl, wpId:j.id, mime:f.type||""};
+    }
+    await mdb.put(id, f); let pid = null; if(poster){ pid = id+"p"; await mdb.put(pid, poster); }
+    return {id, type:"video", name:f.name||"video.mov", size:f.size+(poster?poster.size:0), poster:pid, mime:f.type||""};
+  }
+  return null;
+}
+/* <img> pour une référence (locale ou en ligne) */
+function mediaImgHTML(m, cls="", alt=""){
+  if(!m) return "";
+  const src = m.type==="video" ? (m.purl || "") : (m.url || "");
+  if(src) return `<img class="${cls}" src="${esc(src)}" alt="${esc(alt)}" loading="lazy">`;
+  const mid = m.type==="video" ? m.poster : m.id;
+  return mid ? `<img class="${cls}" data-mid="${esc(mid)}" alt="${esc(alt)}">` : "";
+}
+/* Blob d'une image (pour le PDF) */
+async function mediaBlob(m){
+  if(!m) return null;
+  if(m.url){ try{ const r = await fetch(m.url, {credentials:"same-origin"}); return r.ok ? await r.blob() : null; }catch(e){ return null; } }
+  try{ return await mdb.get(m.id); }catch(e){ return null; }
+}
+/* JPEG prêt pour le PDF : chaîne binaire + dimensions */
+async function jpegForPdf(m, max=900){
+  const b = await mediaBlob(m); if(!b) return null;
+  const url = URL.createObjectURL(b);
+  try{
+    const im = await new Promise((res,rej)=>{ const i=new Image(); i.onload=()=>res(i); i.onerror=rej; i.src=url; });
+    const k = Math.min(1, max/Math.max(im.naturalWidth, im.naturalHeight)), w = Math.round(im.naturalWidth*k), h = Math.round(im.naturalHeight*k);
+    const c = document.createElement("canvas"); c.width=w; c.height=h; const g=c.getContext("2d"); g.fillStyle="#fff"; g.fillRect(0,0,w,h); g.drawImage(im,0,0,w,h);
+    const bin = atob(c.toDataURL("image/jpeg",0.85).split(",")[1]);
+    return {data:bin, w, h};
+  }catch(e){ return null; } finally { URL.revokeObjectURL(url); }
+}
+
+/* ========= Photos des recettes ========= */
+function recPhotosHTML(r){
+  const ph = r.photos || [];
+  if(!ph.length) return `<div class="rphotos empty no-print"><button class="btn small ghost" data-a="rp-add">📷 Ajouter une photo du plat</button></div>`;
+  return `<div class="rphotos">
+    <figure class="rp-main">${mediaImgHTML(ph[0],"",r.name)}</figure>
+    <div class="rp-strip no-print">
+      ${ph.map((m,k)=>`<div class="rp-thumb${k===0?" on":""}">${mediaImgHTML(m)}
+        <div class="rp-acts">${k?`<button type="button" data-a="rp-main" data-m="${m.id}" title="Photo principale" aria-label="Mettre en photo principale">★</button>`:""}<button type="button" data-a="rp-del" data-m="${m.id}" aria-label="Retirer la photo">✕</button></div></div>`).join("")}
+      <button type="button" class="rp-addtile" data-a="rp-add" aria-label="Ajouter une photo">+</button>
+    </div></div>`;
+}
+function refreshRecPhotos(){ const r=rec(ui.recipeId), box=$("#recPhotos"); if(r && box){ box.innerHTML = recPhotosHTML(r); hydrate(box); } }
+async function addRecPhotos(r, files){
+  r.photos = r.photos || []; let ok=0, bad=0;
+  for(const f of [...files]){ toast("Ajout de la photo…"); try{ const m = await storeMedia(f,{imagesOnly:true}); if(m){ r.photos.push(m); ok++; save(); } else bad++; }catch(e){ bad++; toast(e.message||"Photo impossible à ajouter"); } }
+  refreshRecPhotos(); if(ok) toast(ok>1?`${ok} photos ajoutées`:"Photo ajoutée"); else if(bad) toast("Photo non ajoutée");
+}
+
+/* ========= Images et vidéos des articles d'histoire =========
+   Dans le texte : une ligne « [image:ID] légende » affiche une image de l'article ;
+   une ligne qui ne contient qu'un lien YouTube ou Vimeo affiche la vidéo. */
+function videoEmbed(url){
+  const u = String(url||"").trim(); let m;
+  if((m = u.match(/^(?:https?:\/\/)?(?:www\.|m\.)?(?:youtube\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/))) return "https://www.youtube-nocookie.com/embed/"+m[1];
+  if((m = u.match(/^(?:https?:\/\/)?(?:www\.|player\.)?vimeo\.com\/(?:video\/)?(\d{6,12})/))) return "https://player.vimeo.com/video/"+m[1];
+  return null;
+}
+function histMediaBlock(p, a){
+  let m = p.match(/^\[image:([A-Za-z0-9]+)\]\s*(.*)$/);
+  if(m){ const im = (a && a.media || []).find(x=>x.id===m[1]); if(!im) return `<p class="hint">Image introuvable.</p>`;
+    return `<figure class="hist-fig">${mediaImgHTML(im,"",m[2]||"")}${m[2]?`<figcaption>${esc(m[2])}</figcaption>`:""}</figure>`; }
+  const v = /^\S+$/.test(p) ? videoEmbed(p) : null;
+  if(v) return `<div class="hist-video"><iframe src="${esc(v)}" title="Vidéo" loading="lazy" allow="accelerometer; encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`;
+  return null;
+}
+function insertAtCursor(ta, text){
+  const s = ta.selectionStart ?? ta.value.length, e = ta.selectionEnd ?? s;
+  const before = ta.value.slice(0,s), after = ta.value.slice(e);
+  const pre = before && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+  const post = after && !after.startsWith("\n") ? "\n\n" : "";
+  ta.value = before + pre + text + post + after; const pos = (before+pre+text).length; ta.focus(); ta.setSelectionRange(pos,pos);
+}
+
+/* ========= Sélecteurs de fichiers et actions ========= */
+const pickFile = (accept, multiple) => new Promise(res=>{
+  const i = document.createElement("input"); i.type="file"; i.accept=accept; if(multiple) i.multiple=true;
+  i.onchange = () => res(i.files && i.files.length ? i.files : null); i.click();
+});
+document.addEventListener("click", async e=>{
+  const el = e.target.closest("[data-a^='rp-'],[data-a^='hm-']"); if(!el) return;
+  const a = el.dataset.a, r = rec(ui.recipeId);
+  if(a==="rp-add" && r){ const fs = await pickFile("image/*", true); if(fs) addRecPhotos(r, fs); }
+  else if(a==="rp-main" && r){ const k=r.photos.findIndex(m=>m.id===el.dataset.m); if(k>0){ const [m]=r.photos.splice(k,1); r.photos.unshift(m); save(); refreshRecPhotos(); } }
+  else if(a==="rp-del" && r){ if(!confirm("Retirer cette photo de la recette ?")) return; const m=r.photos.find(x=>x.id===el.dataset.m); r.photos=r.photos.filter(x=>x.id!==el.dataset.m); if(m && !m.url) dropMedia(m); save(); refreshRecPhotos(); }
+  else if(a==="hm-cover" || a==="hm-img"){
+    const f = $("#histForm"); if(!f) return;
+    const fs = await pickFile("image/*", false); if(!fs) return;
+    toast("Ajout de l'image…");
+    try{
+      const m = await storeMedia(fs[0], {imagesOnly:true}); if(!m) return toast("Format d'image non reconnu");
+      const draft = histDraft(); draft.media.push(m);
+      if(a==="hm-cover"){ draft.cover = m.id; renderHistFormMedia(); toast("Image d'en-tête ajoutée"); }
+      else { insertAtCursor(f.elements.body, `[image:${m.id}] `); renderHistFormMedia(); toast("Image insérée : ajoutez une légende après le code si vous voulez"); }
+    }catch(err){ toast(err.message||"Image impossible à ajouter"); }
+  }
+  else if(a==="hm-video"){
+    const f = $("#histForm"); if(!f) return;
+    const url = prompt("Collez le lien de la vidéo YouTube ou Vimeo :"); if(!url) return;
+    if(!videoEmbed(url)) return toast("Lien non reconnu : utilisez un lien YouTube ou Vimeo");
+    insertAtCursor(f.elements.body, url.trim()); toast("Vidéo insérée");
+  }
+  else if(a==="hm-cover-del"){ const d=histDraft(); d.cover=null; renderHistFormMedia(); }
+});
+/* Brouillon des médias de l'article en cours d'édition */
+function histDraft(){ return ui.histDraft || (ui.histDraft = {media:[], cover:null}); }
+function renderHistFormMedia(){
+  const box = $("#histMediaBox"); if(!box) return; const d = histDraft();
+  const cover = d.media.find(m=>m.id===d.cover);
+  box.innerHTML = `<div class="hm-row">
+      <div class="hm-cover">${cover?mediaImgHTML(cover):`<span>Pas d'image d'en-tête</span>`}</div>
+      <div class="hm-btns"><button type="button" class="btn small ghost" data-a="hm-cover">${cover?"Changer l'image d'en-tête":"Ajouter une image d'en-tête"}</button>
+      ${cover?`<button type="button" class="btn small ghost" data-a="hm-cover-del">Retirer</button>`:""}</div></div>`;
+  hydrate(box);
+}
+
 /* ========= Interface ========= */
 let ui = {view:"recipes", recipeId:null, target:{}, q:""};
 const $ = s => document.querySelector(s);
@@ -2247,6 +2435,7 @@ function viewRecipe(){
         <select data-f="r-yu" aria-label="Unité de la quantité produite"><option value="">—</option>${YIELD_UNITS.map(u=>`<option${u===r.yieldUnit?" selected":""}>${u}</option>`).join("")}</select>
       </fieldset>`}</div>
     ${(()=>{ const us=usedIn(r.id); return us.length?`<p class="used-in">Utilisée dans : ${us.map(x=>`<button type="button" class="linkbtn" data-a="open-sub" data-id="${x.id}">${esc(x.name)}</button>`).join(", ")}</p>`:""; })()}
+    <div id="recPhotos">${recPhotosHTML(r)}</div>
     <div id="originBox">${originBoxHTML(r)}</div>
 
     <div class="layout">
@@ -2288,6 +2477,7 @@ function viewRecipe(){
       <div class="ticket-wrap"><aside class="ticket" id="results" aria-live="polite"></aside></div>
     </div>`;
   refreshCalc();
+  hydrate($("#recPhotos"));
 }
 
 function refreshCalc(){
@@ -2851,7 +3041,7 @@ function wrapText(s,maxW,size,bold){
   return out;
 }
 function newPdf(){
-  const pages=[];
+  const pages=[], images=[];
   const col=c=>c.map(v=>(v/255).toFixed(3)).join(" ");
   function makePage(p){
     return {
@@ -2862,7 +3052,9 @@ function newPdf(){
         p.ops.push(`BT ${col(o.color||[20,35,45])} rg /${o.bold?"F2":"F1"} ${size} Tf ${X.toFixed(2)} ${(p.h-y).toFixed(2)} Td ${pdfStr(s)} Tj ET`);
       },
       line(x1,y1,x2,y2,o={}){ p.ops.push(`${col(o.color||[203,213,218])} RG ${o.width||0.6} w ${x1} ${p.h-y1} m ${x2} ${p.h-y2} l S`); },
-      rect(x,y,w,h,color){ p.ops.push(`${col(color)} rg ${x.toFixed(2)} ${(p.h-y-h).toFixed(2)} ${w.toFixed(2)} ${h} re f`); }
+      rect(x,y,w,h,color){ p.ops.push(`${col(color)} rg ${x.toFixed(2)} ${(p.h-y-h).toFixed(2)} ${w.toFixed(2)} ${h} re f`); },
+      image(img,x,y,w,h){ let k=images.indexOf(img); if(k<0){ images.push(img); k=images.length-1; } p.imgs=p.imgs||new Set(); p.imgs.add(k);
+        p.ops.push(`q ${w.toFixed(2)} 0 0 ${h.toFixed(2)} ${x.toFixed(2)} ${(p.h-y-h).toFixed(2)} cm /Im${k} Do Q`); }
     };
   }
   return {
@@ -2876,9 +3068,11 @@ function newPdf(){
       pages.forEach((p,i)=>{
         if(footerFn) footerFn(makePage(p),i+1,n);
         const stream=p.ops.join("\n");
-        objs[5+2*i]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${p.w} ${p.h}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${6+2*i} 0 R >>`;
+        const xo = p.imgs && p.imgs.size ? ` /XObject << ${[...p.imgs].map(k=>`/Im${k} ${5+2*n+k} 0 R`).join(" ")} >>` : "";
+        objs[5+2*i]=`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${p.w} ${p.h}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >>${xo} >> /Contents ${6+2*i} 0 R >>`;
         objs[6+2*i]=`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`;
       });
+      images.forEach((im,k)=>{ objs[5+2*n+k]=`<< /Type /XObject /Subtype /Image /Width ${im.w} /Height ${im.h} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${im.data.length} >>\nstream\n${im.data}\nendstream`; });
       for(let i=1;i<objs.length;i++){ off[i]=out.length; out+=`${i} 0 obj\n${objs[i]}\nendobj\n`; }
       const x=out.length;
       out+=`xref\n0 ${objs.length}\n0000000000 65535 f \n`+off.slice(1).map(o=>String(o).padStart(10,"0")+" 00000 n \n").join("");
@@ -2908,6 +3102,8 @@ function pdfRecipePages(pdf,r){
   wrapText(r.name||"Sans nom",R-M,20,true).forEach(l=>{ pg.text(M,y,l,20,{bold:true,color:[27,79,114]}); y+=25; });
   pg.text(M,y,`${nf(r.portions,r.portions%1?1:0)} portions${r.price>0?" · Prix de vente "+money(r.price)+" HT":""}`,10,{color:GRAY}); y+=16;
   pg.line(M,y,R,y,{color:[20,35,45],width:1.2}); y+=20;
+  const ph = pdfPhotoCache.get(r.id);
+  if(ph){ const w=R-M, h=Math.min(230, w*ph.h/ph.w), ww=h*ph.w/ph.h; pg.image(ph, M+(w-ww)/2, y, ww, h); y+=h+22; }
   const hdr=()=>{
     pg.text(M,y,"Ingrédient",8.5,{bold:true,color:GRAY});
     pg.text(400,y,"Quantité",8.5,{bold:true,color:GRAY,align:"right"});
@@ -3003,6 +3199,11 @@ function pdfMatrixPages(pdf,list){
   });
   pg.text(M,H-50,"Un carré rouge indique que le plat contient l'allergène. À vérifier avec les étiquettes de vos fournisseurs.",8.5,{color:[91,107,117]});
 }
+const pdfPhotoCache = new Map();
+async function pdfLoadPhotos(list){
+  pdfPhotoCache.clear();
+  for(const r of list){ const m=(r.photos||[])[0]; if(m){ const j=await jpegForPdf(m); if(j) pdfPhotoCache.set(r.id,j); } }
+}
 const sortedRecipes=()=>[...state.recipes].sort((a,b)=>a.name.localeCompare(b.name,"fr"));
 
 document.addEventListener("click", e=>{
@@ -3010,10 +3211,12 @@ document.addEventListener("click", e=>{
   const a=el.dataset.a;
   if(a==="pdf-recipe"){
     const r=rec(ui.recipeId); if(!r) return;
-    const p=newPdf(); pdfRecipePages(p,r); downloadPDF(p.build(pdfFooter),"fiche-"+slug(r.name)+".pdf"); toast("PDF créé");
+    (async()=>{ await pdfLoadPhotos([r]);
+    const p=newPdf(); pdfRecipePages(p,r); downloadPDF(p.build(pdfFooter),"fiche-"+slug(r.name)+".pdf"); toast("PDF créé"); })();
   } else if(a==="pdf-all"){
     if(!state.recipes.length) return toast("Aucune recette à exporter");
-    const p=newPdf(); sortedRecipes().forEach(r=>pdfRecipePages(p,r)); downloadPDF(p.build(pdfFooter),"fiches-techniques.pdf"); toast("PDF créé");
+    (async()=>{ toast("Préparation du PDF…"); await pdfLoadPhotos(sortedRecipes());
+    const p=newPdf(); sortedRecipes().forEach(r=>pdfRecipePages(p,r)); downloadPDF(p.build(pdfFooter),"fiches-techniques.pdf"); toast("PDF créé"); })();
   } else if(a==="pdf-allergens"){
     if(!state.recipes.length) return toast("Aucune recette à exporter");
     const p=newPdf(); pdfMatrixPages(p,sortedRecipes()); downloadPDF(p.build(pdfFooter),"tableau-allergenes.pdf"); toast("PDF créé");
@@ -3317,30 +3520,17 @@ function videoPoster(file){
   });
 }
 async function addMedia(x,files){
-  const arr=[...files]; let ok=0, tooBig=0, bad=0;
+  const arr=[...files]; let ok=0, tooBig=0, bad=0, err="";
   for(let n=0;n<arr.length;n++){
     const f=arr[n]; toast(`Ajout ${n+1} sur ${arr.length}…`);
-    const isImg=(f.type||"").startsWith("image/")||/\.(heic|heif|jpe?g|png|webp)$/i.test(f.name||"");
-    const isVid=(f.type||"").startsWith("video/")||/\.(mov|mp4|m4v)$/i.test(f.name||"");
-    try{
-      const id=uid();
-      if(isImg){
-        const b=await shrinkImage(f); await mdb.put(id,b);
-        x.media.push({id,type:"image",name:f.name||"photo.jpg",size:b.size});
-      }else if(isVid){
-        if(f.size>MAX_VIDEO){ tooBig++; continue; }
-        const poster=await videoPoster(f); await mdb.put(id,f);
-        let pid=null; if(poster){ pid=id+"p"; await mdb.put(pid,poster); }
-        x.media.push({id,type:"video",name:f.name||"video.mov",size:f.size+(poster?poster.size:0),poster:pid,mime:f.type||""});
-      }else{ bad++; continue; }
-      ok++; save();
-    }catch(e){ bad++; }
+    try{ const m=await storeMedia(f); if(!m){ bad++; continue; } x.media.push(m); ok++; save(); }
+    catch(e){ if(e.tooBig) tooBig++; else { bad++; err=e.message||""; } }
   }
   if(ui.view==="idea"&&ui.ideaId===x.id) renderGallery(x);
   const msg=[];
   if(ok) msg.push(ok+" ajouté"+(ok>1?"s":""));
   if(tooBig) msg.push(tooBig+" vidéo"+(tooBig>1?"s":"")+" trop lourde"+(tooBig>1?"s":"")+" (max 250 Mo)");
-  if(bad) msg.push(bad+" impossible"+(bad>1?"s":"")+" (espace plein ou format non reconnu)");
+  if(bad) msg.push(bad+" impossible"+(bad>1?"s":"")+(err&&isWP()?" ("+err+")":" (espace plein ou format non reconnu)"));
   toast(msg.join(" · ")||"Rien à ajouter");
 }
 async function dropMedia(m){ await mdb.del(m.id); if(m.poster) await mdb.del(m.poster); }
@@ -3362,7 +3552,7 @@ function viewNotebook(){
     const med=[nI?nI+" photo"+(nI>1?"s":""):"",nV?nV+" vidéo"+(nV>1?"s":""):""].filter(Boolean).join(", ");
     const meta=[[x.place,x.country].filter(Boolean).join(", "),x.date?dateFr(x.date):"",med].filter(Boolean).join(" · ");
     return `<button class="row-card idea-card st-${sc==="info"?"none":sc}" data-a="open-idea" data-id="${x.id}">
-      <div class="thumb">${mid?`<img data-mid="${mid}" alt="">`:PIN}</div>
+      <div class="thumb">${first?mediaImgHTML(first):PIN}</div>
       <div class="ic-main"><div class="t">${esc(x.title||"Idée sans nom")}</div><div class="s">${esc(meta||"Lieu et date à ajouter")}</div></div>
       <span class="badge ${sc}">${sl}</span></button>`;
   }).join("");
@@ -3424,15 +3614,16 @@ function viewIdea(){
 function renderGallery(x){
   const g=$("#gallery"); if(!g) return;
   freeUrls();
-  g.innerHTML=x.media.length?x.media.map(m=>`<button class="mtile ${m.type}" data-a="media-open" data-m="${m.id}" aria-label="${m.type==="image"?"Voir la photo":"Voir la vidéo"}">${(m.type==="image"||m.poster)?`<img data-mid="${m.type==="image"?m.id:m.poster}" alt="">`:""}${m.type==="video"?'<span class="play"></span>':""}<span class="miss">Absent de cet appareil</span></button>`).join("")
+  g.innerHTML=x.media.length?x.media.map(m=>`<button class="mtile ${m.type}" data-a="media-open" data-m="${m.id}" aria-label="${m.type==="image"?"Voir la photo":"Voir la vidéo"}">${mediaImgHTML(m)}${m.type==="video"?'<span class="play"></span>':""}<span class="miss">Absent de cet appareil</span></button>`).join("")
     :`<div class="plan-empty">Aucune photo ni vidéo pour l'instant.</div>`;
   hydrate(g);
 }
 async function openMedia(x,mid){
   const m=x.media.find(k=>k.id===mid); if(!m) return;
-  let b=null; try{ b=await mdb.get(mid); }catch(e){}
+  let b=null; if(!m.url){ try{ b=await mdb.get(mid); }catch(e){} }
   let inner;
-  if(!b) inner=`<p>Ce fichier n'est pas disponible sur cet appareil : il a été ajouté depuis un autre appareil, ou effacé par le navigateur.</p>`;
+  if(m.url) inner=m.type==="image"?`<img src="${esc(m.url)}" alt="">`:`<video src="${esc(m.url)}" controls playsinline preload="metadata"${m.purl?` poster="${esc(m.purl)}"`:""}></video>`;
+  else if(!b) inner=`<p>Ce fichier n'est pas disponible sur cet appareil : il a été ajouté depuis un autre appareil, ou effacé par le navigateur.</p>`;
   else{ viewerUrl=URL.createObjectURL(b); inner=m.type==="image"?`<img src="${viewerUrl}" alt="">`:`<video src="${viewerUrl}" controls playsinline preload="metadata"></video>`; }
   const d=$("#mediaDlg");
   d.innerHTML=`<div class="dlg mview"><h3>${m.type==="image"?"Photo":"Vidéo"}</h3>${inner}<div class="dlg-actions"><button type="button" class="btn danger" data-a="media-del" data-m="${mid}" style="margin-right:auto">Supprimer</button><button type="button" class="btn" data-a="media-close">Fermer</button></div></div>`;
@@ -3531,7 +3722,7 @@ document.addEventListener("click", e=>{
   else if(a==="media-del"&&x){
     if(!confirm("Supprimer ce fichier de l'idée ?")) return;
     const m=x.media.find(k=>k.id===el.dataset.m); x.media=x.media.filter(k=>k.id!==el.dataset.m);
-    $("#mediaDlg").close(); if(m) dropMedia(m); save(); renderGallery(x); toast("Fichier supprimé");
+    $("#mediaDlg").close(); if(m && !m.url) dropMedia(m); save(); renderGallery(x); toast("Fichier supprimé");
   }
   else if(a==="idea-share"&&x) shareIdea(x);
   else if(a==="idea-del"&&x){
